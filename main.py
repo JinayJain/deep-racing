@@ -1,7 +1,8 @@
+from math import e
 import gym
 import numpy as np
 import torch
-from torch import nn
+from torch import nn, optim
 from torchvision.models import efficientnet_b0
 import torchvision.transforms as T
 import yaml
@@ -25,7 +26,7 @@ def load_config():
 
 def make_backbone():
     bb = efficientnet_b0(pretrained=True)
-    bb.classifier = nn.Identity()
+    bb.classifier = nn.Identity()  # remove the final classification layer
     bb.eval()
 
     return bb
@@ -33,8 +34,7 @@ def make_backbone():
 
 def preprocess(img):
     # Normalize according to the pre-trained model (https://pytorch.org/vision/stable/models.html)
-    normalize = T.Normalize(mean=[0.485, 0.456, 0.406],
-                            std=[0.229, 0.224, 0.225])
+    normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     img = np.ascontiguousarray(img, dtype=np.float32)
     img = torch.from_numpy(img).permute(2, 0, 1)
@@ -42,6 +42,11 @@ def preprocess(img):
     img = normalize(img)
 
     return img
+
+
+def soft_update(target, source, tau):
+    for target_param, param in zip(target.parameters(), source.parameters()):
+        target_param.data.copy_(target_param.data * (1.0 - tau) + param.data * tau)
 
 
 def main():
@@ -55,7 +60,67 @@ def main():
     actor = Actor().to(device)
     critic = Critic().to(device)
 
+    actor_opt = optim.Adam(actor.parameters(), lr=cfg["actor_lr"])
+    critic_opt = optim.Adam(critic.parameters(), lr=cfg["critic_lr"])
+
+    # Create target networks
+    target_actor = Actor().to(device)
+    target_critic = Critic().to(device)
+
+    # Copy the weights from the networks to their target networks
+    target_actor.load_state_dict(actor.state_dict())
+    target_critic.load_state_dict(critic.state_dict())
+
+    # Set target networks to evaluation mode
+    target_actor.eval()
+    target_critic.eval()
+
     memory = ReplayBuffer(cfg["replay_buffer_size"])
+
+    criterion = nn.MSELoss()
+
+    def train_batch():
+        if len(memory) < cfg["batch_size"]:
+            return
+
+        critic_opt.zero_grad()
+
+        batch = memory.sample(cfg["batch_size"])
+        states, actions, rewards, next_states = zip(*batch)
+
+        states = torch.cat(states, dim=0).to(device)
+        actions = torch.cat(actions, dim=0).to(device)
+        rewards = torch.tensor(rewards).to(device).unsqueeze(1)
+
+        # Compute predicted Q-values
+        q_pred = critic(states, actions)
+
+        # Compute target Q-values
+        q_target = rewards
+
+        # Handle terminal states
+        non_final_mask = torch.tensor(
+            tuple(map(lambda s: s is not None, next_states)),
+            dtype=torch.bool,
+            device=device,
+        )
+
+        next_states = torch.cat([s for s in next_states if s is not None]).to(device)
+
+        q_target[non_final_mask] += cfg["gamma"] * target_critic(
+            next_states, target_actor(next_states)
+        )
+
+        # Optimize critic by minimizing the MSE between preds and targets
+        loss = criterion(q_pred, q_target)
+        loss.backward()
+        critic_opt.step()
+
+        # Optimize actor using the policy gradient update
+        actor_opt.zero_grad()
+        actor_loss = -critic(states, actor(states)).mean()  # this should be maximized
+        actor_loss.backward()
+        actor_opt.step()
 
     for ep in range(cfg["num_episodes"]):
         with torch.no_grad():
@@ -79,6 +144,11 @@ def main():
                 memory.push(state.cpu(), action, reward, next_state.cpu())
 
             # Train on a sampled batch from the replay buffer
+            train_batch()
+
+            # Soft update the target networks
+            soft_update(target_actor, actor, cfg["tau"])
+            soft_update(target_critic, critic, cfg["tau"])
 
             env.render()
 
@@ -87,5 +157,5 @@ def main():
     env.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

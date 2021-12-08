@@ -7,8 +7,8 @@ class Critic(nn.Module):
         super(Critic, self).__init__()
 
         self.fc1 = nn.Linear(1280 + 4, 512)
-        self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, 1)
+        self.fc2 = nn.Linear(512, 512)
+        self.fc3 = nn.Linear(512, 1)
 
     def forward(self, state: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
         x = torch.cat([state, action], dim=1)
