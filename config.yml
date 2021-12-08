@@ -1,1 +1,5 @@
-num_episodes: 1
+num_episodes: 5
+replay_buffer_size: 100000
+noise_std: 0.25
+
+batch_size: 32
