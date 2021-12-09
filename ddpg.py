@@ -2,7 +2,7 @@ import torch
 from torch import optim, nn
 
 from net import Actor, Critic
-from memory import ReplayBuffer
+from util.memory import ReplayBuffer
 
 
 class DDPG:
@@ -17,8 +17,7 @@ class DDPG:
         device=None,
     ):
         if device is None:
-            self.device = torch.device(
-                "cuda" if torch.cuda.is_available() else "cpu")
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = device
 

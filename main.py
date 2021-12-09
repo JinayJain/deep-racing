@@ -12,7 +12,7 @@ from os import path
 import time
 
 from ddpg import DDPG
-from plotter import Plotter
+from util.plotter import Plotter
 
 # from plotter import Plotter
 
@@ -61,8 +61,7 @@ def main():
     noise = cfg["noise"]
 
     all_episode_plt = Plotter("All Episodes", "Episode", "Value")
-    episode_plt = Plotter("Within Episode", "Step",
-                          "Value", update_interval=20)
+    episode_plt = Plotter("Within Episode", "Step", "Value", update_interval=20)
     loss_plt = Plotter("Loss", "Step", "Loss", update_interval=20)
     noise_plt = Plotter("Noise", "Episode", "Noise")
 
@@ -124,8 +123,7 @@ def main():
 
             end = time.time()
 
-            print(
-                f"Episode: {ep} | Step: {t} | Reward: {reward} | Time: {end - start}")
+            print(f"Episode: {ep} | Step: {t} | Reward: {reward} | Time: {end - start}")
 
         print(
             f"Episode {ep} finished after {t} timesteps with total reward {total_reward}"
