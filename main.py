@@ -12,6 +12,7 @@ from os import path
 import time
 
 from ddpg import DDPG
+from plotter import Plotter
 
 # from plotter import Plotter
 
@@ -58,15 +59,24 @@ def main():
     )
 
     noise = cfg["noise"]
+
+    all_episode_plt = Plotter("All Episodes", "Episode", "Value")
+    episode_plt = Plotter("Within Episode", "Step",
+                          "Value", update_interval=20)
+    loss_plt = Plotter("Loss", "Step", "Loss", update_interval=20)
+    noise_plt = Plotter("Noise", "Episode", "Noise")
+
     for ep in range(cfg["num_episodes"]):
         state = preprocess(env.reset()).unsqueeze(0).to(device)
 
         last_reward_step = 0
         total_reward = 0
 
+        episode_plt.reset()
+        loss_plt.reset()
+
         for t in count():
             start = time.time()
-
             # Create a new transition to store in the replay buffer
             with torch.no_grad():
                 # Sample an action from the policy (noise is added to ensure exploration)
@@ -97,16 +107,25 @@ def main():
 
                 ddpg.push(state.cpu(), action, reward, next_state.cpu())
 
-            # Train on a sampled batch from the replay buffer
-            ddpg.train_batch()
-
             if cfg["render"]:
                 env.render()
 
+            # Train on a sampled batch from the replay buffer
+            actor_loss, critic_loss = ddpg.train_batch()
+
+            loss_plt.append(t, actor_loss, "Actor Loss")
+            loss_plt.append(t, critic_loss, "Critic Loss")
+
             state = next_state
 
+            episode_plt.append(t, q_value.item(), "Q-Value")
+            episode_plt.append(t, target_q_value.item(), "Target Q-Value")
+            episode_plt.append(t, total_reward, "Total Reward")
+
             end = time.time()
-            print(f"Step {t} took {end - start} seconds")
+
+            print(
+                f"Episode: {ep} | Step: {t} | Reward: {reward} | Time: {end - start}")
 
         print(
             f"Episode {ep} finished after {t} timesteps with total reward {total_reward}"
@@ -114,7 +133,8 @@ def main():
 
         noise = max(cfg["noise_decay"] * noise, cfg["noise_min"])
 
-        # per_episode_reward.append(ep, total_reward)
+        all_episode_plt.append(ep, total_reward, "Total Reward")
+        noise_plt.append(ep, noise, "Noise")
 
         if ep % cfg["save_every"] == 0:
             ddpg.save(path.join(cfg["save_dir"], f"{ep}"))

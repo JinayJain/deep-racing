@@ -17,7 +17,8 @@ class DDPG:
         device=None,
     ):
         if device is None:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.device = torch.device(
+                "cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = device
 
@@ -45,7 +46,7 @@ class DDPG:
 
     def train_batch(self):
         if len(self.memory) < self.batch_size:
-            return
+            return 0, 0
 
         batch = self.memory.sample(self.batch_size)
         states, actions, rewards, next_states = zip(*batch)
@@ -90,6 +91,8 @@ class DDPG:
         self.actor_opt.step()
 
         self.soft_update_targets()
+
+        return actor_loss.item(), loss.item()
 
     def soft_update_targets(self):
         for target_param, param in zip(

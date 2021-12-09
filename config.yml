@@ -8,8 +8,8 @@ noise: 2.0
 noise_decay: 0.9999
 noise_min: 0.3
 
-batch_size: 16
-actor_lr: 0.0001
+batch_size: 32
+actor_lr: 0.001
 critic_lr: 0.001
 
 save_dir: ckpt
