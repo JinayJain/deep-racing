@@ -14,7 +14,6 @@ import time
 from ddpg import DDPG
 from util.plotter import Plotter
 
-# from plotter import Plotter
 
 CONFIG_FILE = "config.yml"
 
@@ -45,6 +44,10 @@ def preprocess(img):
 def main():
     cfg = load_config()
 
+    # Seed RNG
+    np.random.seed(cfg["seed"])
+    torch.manual_seed(cfg["seed"])
+
     env = gym.make("CarRacing-v0")
     env.reset()
 
@@ -61,7 +64,8 @@ def main():
     noise = cfg["noise"]
 
     all_episode_plt = Plotter("All Episodes", "Episode", "Value")
-    episode_plt = Plotter("Within Episode", "Step", "Value", update_interval=20)
+    episode_plt = Plotter("Within Episode", "Step",
+                          "Value", update_interval=20)
     loss_plt = Plotter("Loss", "Step", "Loss", update_interval=20)
     noise_plt = Plotter("Noise", "Episode", "Noise")
 
@@ -92,17 +96,22 @@ def main():
 
                 target_next_q = ddpg.target_critic(state, action)
 
-                td_error = reward + cfg["gamma"] * target_next_q - q_value
+                if not done:
+                    td_error = (reward + cfg["gamma"]
+                                * target_next_q - q_value).item()
+                else:
+                    td_error = reward - q_value.item()
 
                 if reward > 0:
                     last_reward_step = t
 
                 if done or (t - last_reward_step) > cfg["max_steps_without_reward"]:
-                    ddpg.push(state.cpu(), action, reward, None)
+                    ddpg.push(state.cpu(), action.cpu(), reward,
+                              None, td_error)
                     break
 
                 ddpg.push(
-                    state.cpu(), action.cpu(), reward, next_state.cpu(), td_error.item()
+                    state.cpu(), action.cpu(), reward, next_state.cpu(), td_error
                 )
 
             if cfg["render"]:
@@ -119,10 +128,12 @@ def main():
             episode_plt.append(t, q_value.item(), "Q-Value")
             episode_plt.append(t, target_next_q.item(), "Target Next Q-Value")
             episode_plt.append(t, total_reward, "Total Reward")
+            episode_plt.append(t, td_error, "TD Error")
 
             end = time.time()
 
-            print(f"Episode: {ep} | Step: {t} | Reward: {reward} | Time: {end - start}")
+            print(
+                f"Episode: {ep} | Step: {t} | Reward: {reward} | Time: {end - start}")
 
         print(
             f"Episode {ep} finished after {t} timesteps with total reward {total_reward}"

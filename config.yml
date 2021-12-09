@@ -1,8 +1,10 @@
+seed: 420
+
 num_episodes: 50000
 replay_buffer_size: 100000
 gamma: 0.99
 tau: 0.001
-max_steps_without_reward: 100
+max_steps_without_reward: 200
 
 noise: 2.0
 noise_decay: 0.9999
