@@ -18,3 +18,4 @@ save_dir: ckpt
 save_every: 500
 
 render: true
+plot: false

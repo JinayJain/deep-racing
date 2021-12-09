@@ -9,12 +9,13 @@ class Plotter:
     Plot a visdom line chart
     """
 
-    def __init__(self, title, xlabel, ylabel, update_interval=1, xmin=0):
+    def __init__(self, title, xlabel, ylabel, update_interval=1, xmin=0, plot=True):
 
         self.title = title
         self.xlabel = xlabel
         self.ylabel = ylabel
         self.update_interval = update_interval
+        self.plot = plot
 
         self.opts = {
             "title": title,
@@ -35,7 +36,7 @@ class Plotter:
         else:
             self.lines[name].append((x, y))
 
-        if len(self.lines[name]) > self.update_interval:
+        if len(self.lines[name]) > self.update_interval and self.plot:
             x, y = zip(*self.lines[name])
 
             vis.line(
@@ -49,13 +50,14 @@ class Plotter:
             self.lines[name] = []
 
     def reset(self):
-        for line in self.lines:
-            vis.line(
-                X=np.array([0]),
-                Y=np.array([0]),
-                win=self.win,
-                name=line,
-                update="replace"
-            )
+        if self.plot:
+            for line in self.lines:
+                vis.line(
+                    X=np.array([0]),
+                    Y=np.array([0]),
+                    win=self.win,
+                    name=line,
+                    update="replace"
+                )
 
         self.lines = {}
