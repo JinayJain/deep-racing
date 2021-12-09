@@ -1,21 +1,21 @@
 import gym
 import numpy as np
 import torch
-from torch import nn, optim
+from torch import nn
 from torchvision.models import efficientnet_b0
 import torchvision.transforms as T
 import yaml
-import visdom
 
 from itertools import count
 from os import path
 
 from ddpg import DDPG
 
+# from plotter import Plotter
+
 CONFIG_FILE = "config.yml"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-vis = visdom.Visdom()
 
 
 def load_config():
@@ -44,11 +44,6 @@ def preprocess(img):
     return img
 
 
-def soft_update(target, source, tau):
-    for target_param, param in zip(target.parameters(), source.parameters()):
-        target_param.data.copy_(target_param.data * (1.0 - tau) + param.data * tau)
-
-
 def main():
     cfg = load_config()
 
@@ -67,16 +62,13 @@ def main():
         device=device,
     )
 
-    episode_rewards = []
+    # per_episode_reward = Plotter("Episode Rewards", "Episode", "Reward")
+    # episode_reward = Plotter("Reward", "Timestep", "Total Reward")
 
-    # Create episode reward plot
-    win_ep_reward = vis.line(
-        X=np.array([0]),
-        Y=np.array([0]),
-        opts=dict(title="Episode Rewards", xlabel="Episode", ylabel="Reward",),
-    )
-
+    noise = cfg["noise"]
     for ep in range(cfg["num_episodes"]):
+        # episode_reward.clear()
+
         with torch.no_grad():
             screen = env.reset()
             state = effnet(preprocess(screen).unsqueeze(0).to(device))
@@ -88,15 +80,20 @@ def main():
             with torch.no_grad():
                 # Sample an action from the policy (noise is added to ensure exploration)
                 action = ddpg.actor(state)
-                action += torch.randn(action.shape).to(device) * cfg["noise_std"]
+                action += torch.randn(action.shape).to(device) * noise
 
                 # Ask the critic for the Q-value estimate of the current state and action
                 q_value = ddpg.critic(state, action)
+                target_q_value = ddpg.target_critic(state, action)
 
                 action = action.cpu()
 
                 screen, reward, done, _ = env.step(action.numpy()[0])
                 total_reward += reward
+
+                # episode_reward.append(t, total_reward, "Total Reward")
+                # episode_reward.append(t, q_value.item(), "Q-Value")
+                # episode_reward.append(t, target_q_value.item(), "Target Q-Value")
 
                 if reward > 0:
                     last_reward_step = t
@@ -119,16 +116,9 @@ def main():
 
         print(f"Episode {ep} finished after {t} timesteps")
 
-        episode_rewards.append(total_reward)
+        noise = max(cfg["noise_decay"] * noise, cfg["noise_min"])
 
-        # Update the plot
-        vis.line(
-            X=np.array([ep]),
-            Y=np.array([total_reward]),
-            win=win_ep_reward,
-            name="Episode Reward",
-            update="append",
-        )
+        # per_episode_reward.append(ep, total_reward)
 
         if ep % cfg["save_every"] == 0:
             ddpg.save(path.join(cfg["save_dir"], f"{ep}"))

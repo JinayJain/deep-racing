@@ -1,9 +1,12 @@
 num_episodes: 50000
 replay_buffer_size: 100000
-noise_std: 1.0
 gamma: 0.99
-tau: 0.01
+tau: 0.001
 max_steps_without_reward: 100
+
+noise: 2.0
+noise_decay: 0.995
+noise_min: 0.3
 
 batch_size: 16
 actor_lr: 0.0001
