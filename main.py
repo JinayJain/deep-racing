@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 from itertools import count
 from os import path
+import time
 
 from ddpg import DDPG
 
@@ -28,10 +29,12 @@ def load_config():
 def preprocess(img):
     # Normalize according to the pre-trained model (https://pytorch.org/vision/stable/models.html)
     # normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    downsize = T.Resize((32, 32))
+    downsize = T.Resize((64, 64))
+    grayscale = T.Grayscale()
 
     img = np.ascontiguousarray(img, dtype=np.float32)
     img = torch.from_numpy(img).permute(2, 0, 1)
+    img = grayscale(img)
     img /= 255.0
     img = downsize(img)
 
@@ -60,7 +63,10 @@ def main():
 
         last_reward_step = 0
         total_reward = 0
+
         for t in count():
+            start = time.time()
+
             # Create a new transition to store in the replay buffer
             with torch.no_grad():
                 # Sample an action from the policy (noise is added to ensure exploration)
@@ -98,6 +104,9 @@ def main():
                 env.render()
 
             state = next_state
+
+            end = time.time()
+            print(f"Step {t} took {end - start} seconds")
 
         print(
             f"Episode {ep} finished after {t} timesteps with total reward {total_reward}"

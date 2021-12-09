@@ -7,7 +7,7 @@ class Actor(nn.Module):
         super(Actor, self).__init__()
 
         self.backbone = Backbone()
-        self.fc1 = nn.Linear(1152, 512)
+        self.fc1 = nn.Linear(2048, 512)
         self.fc2 = nn.Linear(512, 512)
         self.fc3 = nn.Linear(512, 4)
 
@@ -30,7 +30,7 @@ class Critic(nn.Module):
         super(Critic, self).__init__()
 
         self.backbone = Backbone()
-        self.fc1 = nn.Linear(1152 + 4, 512)
+        self.fc1 = nn.Linear(2048 + 4, 512)
         self.fc2 = nn.Linear(512, 512)
         self.fc3 = nn.Linear(512, 1)
 
@@ -47,11 +47,11 @@ class Backbone(nn.Module):
     def __init__(self):
         super(Backbone, self).__init__()
 
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding="same")
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3)
         self.pool1 = nn.MaxPool2d(3, 3)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding="same")
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3)
         self.pool2 = nn.MaxPool2d(3, 3)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding="same")
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3)
         self.flatten = nn.Flatten()
 
     def forward(self, x):
