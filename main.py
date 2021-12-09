@@ -63,11 +63,12 @@ def main():
 
     noise = cfg["noise"]
 
-    all_episode_plt = Plotter("All Episodes", "Episode", "Value")
+    plot = cfg["plot"]
+    all_episode_plt = Plotter("All Episodes", "Episode", "Value", plot=plot)
     episode_plt = Plotter("Within Episode", "Step",
-                          "Value", update_interval=20)
-    loss_plt = Plotter("Loss", "Step", "Loss", update_interval=20)
-    noise_plt = Plotter("Noise", "Episode", "Noise")
+                          "Value", update_interval=20, plot=plot)
+    loss_plt = Plotter("Loss", "Step", "Loss", update_interval=20, plot=plot)
+    noise_plt = Plotter("Noise", "Episode", "Noise", plot=plot)
 
     for ep in range(cfg["num_episodes"]):
         state = preprocess(env.reset()).unsqueeze(0).to(device)
