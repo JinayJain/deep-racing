@@ -1,8 +1,7 @@
 import torch
 from torch import optim, nn
 
-from actor import Actor
-from critic import Critic
+from net import Actor, Critic
 from memory import ReplayBuffer
 
 

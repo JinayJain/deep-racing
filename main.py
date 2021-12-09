@@ -5,6 +5,7 @@ from torch import nn
 from torchvision.models import efficientnet_b0
 import torchvision.transforms as T
 import yaml
+import matplotlib.pyplot as plt
 
 from itertools import count
 from os import path
@@ -24,30 +25,21 @@ def load_config():
     return config
 
 
-def make_backbone():
-    bb = efficientnet_b0(pretrained=True)
-    bb.classifier = nn.Identity()  # remove the final classification layer
-    bb.eval()
-
-    return bb
-
-
 def preprocess(img):
     # Normalize according to the pre-trained model (https://pytorch.org/vision/stable/models.html)
-    normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    # normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    downsize = T.Resize((32, 32))
 
     img = np.ascontiguousarray(img, dtype=np.float32)
     img = torch.from_numpy(img).permute(2, 0, 1)
     img /= 255.0
-    img = normalize(img)
+    img = downsize(img)
 
     return img
 
 
 def main():
     cfg = load_config()
-
-    effnet = make_backbone().to(device)
 
     env = gym.make("CarRacing-v0")
     env.reset()
@@ -62,16 +54,9 @@ def main():
         device=device,
     )
 
-    # per_episode_reward = Plotter("Episode Rewards", "Episode", "Reward")
-    # episode_reward = Plotter("Reward", "Timestep", "Total Reward")
-
     noise = cfg["noise"]
     for ep in range(cfg["num_episodes"]):
-        # episode_reward.clear()
-
-        with torch.no_grad():
-            screen = env.reset()
-            state = effnet(preprocess(screen).unsqueeze(0).to(device))
+        state = preprocess(env.reset()).unsqueeze(0).to(device)
 
         last_reward_step = 0
         total_reward = 0
@@ -102,7 +87,7 @@ def main():
                     ddpg.push(state.cpu(), action, reward, None)
                     break
 
-                next_state = effnet(preprocess(screen).unsqueeze(0).to(device))
+                next_state = preprocess(screen).unsqueeze(0).to(device)
 
                 ddpg.push(state.cpu(), action, reward, next_state.cpu())
 
@@ -114,7 +99,9 @@ def main():
 
             state = next_state
 
-        print(f"Episode {ep} finished after {t} timesteps")
+        print(
+            f"Episode {ep} finished after {t} timesteps with total reward {total_reward}"
+        )
 
         noise = max(cfg["noise_decay"] * noise, cfg["noise_min"])
 
