@@ -84,16 +84,15 @@ def main():
 
                 # Ask the critic for the Q-value estimate of the current state and action
                 q_value = ddpg.critic(state, action)
-                target_q_value = ddpg.target_critic(state, action)
 
-                action = action.cpu()
+                screen, reward, done, _ = env.step(action.cpu().numpy()[0])
 
-                screen, reward, done, _ = env.step(action.numpy()[0])
+                next_state = preprocess(screen).unsqueeze(0).to(device)
                 total_reward += reward
 
-                # episode_reward.append(t, total_reward, "Total Reward")
-                # episode_reward.append(t, q_value.item(), "Q-Value")
-                # episode_reward.append(t, target_q_value.item(), "Target Q-Value")
+                target_next_q = ddpg.target_critic(state, action)
+
+                td_error = reward + cfg["gamma"] * target_next_q - q_value
 
                 if reward > 0:
                     last_reward_step = t
@@ -102,9 +101,9 @@ def main():
                     ddpg.push(state.cpu(), action, reward, None)
                     break
 
-                next_state = preprocess(screen).unsqueeze(0).to(device)
-
-                ddpg.push(state.cpu(), action, reward, next_state.cpu())
+                ddpg.push(
+                    state.cpu(), action.cpu(), reward, next_state.cpu(), td_error.item()
+                )
 
             if cfg["render"]:
                 env.render()
@@ -118,7 +117,7 @@ def main():
             state = next_state
 
             episode_plt.append(t, q_value.item(), "Q-Value")
-            episode_plt.append(t, target_q_value.item(), "Target Q-Value")
+            episode_plt.append(t, target_next_q.item(), "Target Next Q-Value")
             episode_plt.append(t, total_reward, "Total Reward")
 
             end = time.time()

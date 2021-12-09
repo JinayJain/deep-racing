@@ -1,8 +1,12 @@
+from collections import namedtuple
+
 import torch
 from torch import optim, nn
 
 from net import Actor, Critic
-from util.memory import ReplayBuffer
+from util.replay import Memory
+
+Transition = namedtuple("Transition", ("state", "action", "reward", "next_state"))
 
 
 class DDPG:
@@ -32,22 +36,22 @@ class DDPG:
         self.target_critic.load_state_dict(self.critic.state_dict())
         self.critic_opt = optim.Adam(self.critic.parameters(), lr=critic_lr)
         self.target_critic.eval()
-        self.criterion = nn.MSELoss()
+        self.criterion = nn.SmoothL1Loss(reduction="none")
 
         self.batch_size = batch_size
         self.gamma = gamma
         self.tau = tau
 
-        self.memory = ReplayBuffer(replay_buffer_size)
+        self.memory = Memory(replay_buffer_size)
 
-    def push(self, state, action, reward, next_state):
-        self.memory.push(state, action, reward, next_state)
+    def push(self, state, action, reward, next_state, error):
+        self.memory.add(error, Transition(state, action, reward, next_state))
 
     def train_batch(self):
         if len(self.memory) < self.batch_size:
             return 0, 0
 
-        batch = self.memory.sample(self.batch_size)
+        batch, idxs, is_weight = self.memory.sample(self.batch_size)
         states, actions, rewards, next_states = zip(*batch)
 
         states = torch.cat(states, dim=0).to(self.device)
@@ -77,9 +81,15 @@ class DDPG:
         )
 
         # Optimize critic by minimizing the MSE between preds and targets
-        loss = self.criterion(q_pred, q_target)
+        # TODO: Add importance sampling
+        td_error = self.criterion(q_pred, q_target)
+        loss = td_error.mean()
         loss.backward()
         self.critic_opt.step()
+
+        # Update priorities
+        for idx, error in zip(idxs, td_error):
+            self.memory.update(idx, error.item())
 
         # Optimize actor using the policy gradient update
         self.actor_opt.zero_grad()
