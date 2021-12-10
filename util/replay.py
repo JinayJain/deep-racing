@@ -6,21 +6,21 @@ import numpy as np
 
 
 class Memory:  # stored as ( s, a, r, s_ ) in SumTree
-    # bias term for calculating priority
-    epsilon = 0.01
-
-    # controls importance of using priority
-    alpha = 0.8
-
-    # controls weight of importance sampling
-    beta = 0.3
-
-    # increment for beta (use importance sampling more as you go)
-    beta_increment_per_sampling = 0.0005
-
-    def __init__(self, capacity):
+    def __init__(self, capacity, alpha=0.4, beta=0.3):
         self.tree = SumTree(capacity)
         self.capacity = capacity
+
+        # bias term for calculating priority
+        self.epsilon = 0.01
+
+        # controls importance of using priority
+        self.alpha = alpha
+
+        # controls weight of importance sampling
+        self.beta = beta
+
+        # increment for beta (use importance sampling more as you go)
+        self.beta_increment_per_sampling = 0.0005
 
     def _get_priority(self, error):
         return (np.abs(error) + self.epsilon) ** self.alpha

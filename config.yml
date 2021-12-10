@@ -1,21 +1,23 @@
 seed: 283
 
 num_episodes: 50000
-replay_buffer_size: 100000
 gamma: 0.99
-tau: 0.001
 max_steps_without_reward: 200
+target_update_interval: 100
 
-noise: 1.0
-noise_decay: 0.999
-noise_min: 0.3
+memory_size: 100000
+memory_alpha: 0.6
+memory_beta: 0.4
 
-batch_size: 32
-actor_lr: 0.001
-critic_lr: 0.001
+epsilon: 1.0
+epsilon_decay: 0.995
+epsilon_min: 0.1
+
+batch_size: 16
+lr: 0.001
 
 save_dir: ckpt
-save_every: 500
+save_every: 100
 
 render: true
 
