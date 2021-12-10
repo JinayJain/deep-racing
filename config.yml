@@ -1,4 +1,4 @@
-seed: 420
+seed: 283
 
 num_episodes: 50000
 replay_buffer_size: 100000
@@ -6,8 +6,8 @@ gamma: 0.99
 tau: 0.001
 max_steps_without_reward: 200
 
-noise: 2.0
-noise_decay: 0.9999
+noise: 1.0
+noise_decay: 0.999
 noise_min: 0.3
 
 batch_size: 32
@@ -18,4 +18,6 @@ save_dir: ckpt
 save_every: 500
 
 render: true
-plot: false
+
+plot: true
+plot_interval: 80

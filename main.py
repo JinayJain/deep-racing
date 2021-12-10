@@ -34,7 +34,7 @@ def preprocess(img):
 
     img = np.ascontiguousarray(img, dtype=np.float32)
     img = torch.from_numpy(img).permute(2, 0, 1)
-    img = grayscale(img)
+    # img = grayscale(img)
     img /= 255.0
     img = downsize(img)
 
@@ -51,6 +51,8 @@ def main():
     env = gym.make("CarRacing-v0")
     env.reset()
 
+    print(env.action_space)
+
     ddpg = DDPG(
         actor_lr=cfg["actor_lr"],
         critic_lr=cfg["critic_lr"],
@@ -64,10 +66,13 @@ def main():
     noise = cfg["noise"]
 
     plot = cfg["plot"]
+    plot_interval = cfg["plot_interval"]
+
     all_episode_plt = Plotter("All Episodes", "Episode", "Value", plot=plot)
     episode_plt = Plotter("Within Episode", "Step",
-                          "Value", update_interval=20, plot=plot)
-    loss_plt = Plotter("Loss", "Step", "Loss", update_interval=20, plot=plot)
+                          "Value", update_interval=plot_interval, plot=plot)
+    loss_plt = Plotter("Loss", "Step", "Loss",
+                       update_interval=plot_interval, plot=plot)
     noise_plt = Plotter("Noise", "Episode", "Noise", plot=plot)
 
     for ep in range(cfg["num_episodes"]):
@@ -86,11 +91,18 @@ def main():
                 # Sample an action from the policy (noise is added to ensure exploration)
                 action = ddpg.actor(state)
                 action += torch.randn(action.shape).to(device) * noise
+                action.clamp_(min=0, max=1)
 
                 # Ask the critic for the Q-value estimate of the current state and action
                 q_value = ddpg.critic(state, action)
 
-                screen, reward, done, _ = env.step(action.cpu().numpy()[0])
+                env_action = action.squeeze(0).cpu().numpy(
+                ) * np.array([2.0, 1.0, 1.0]) + np.array([-1.0, 0.0, 0.0])
+
+                print(env_action)
+                print(action)
+
+                screen, reward, done, _ = env.step(env_action)
 
                 next_state = preprocess(screen).unsqueeze(0).to(device)
                 total_reward += reward
