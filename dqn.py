@@ -4,13 +4,15 @@ import torch
 from torch import nn, optim
 import numpy as np
 import random
+import os
 
 from torch.nn.modules import conv
 
 from util.replay import Memory
 
 device = torch.device("cuda" if torch.cuda.is_available else "cpu")
-Transition = namedtuple("Transition", ("state", "action", "reward", "next_state"))
+Transition = namedtuple(
+    "Transition", ("state", "action", "reward", "next_state"))
 
 
 class DQN:
@@ -22,7 +24,7 @@ class DQN:
         gamma=0.99,
         epsilon=1.0,
         epsilon_min=0.01,
-        epsilon_decay=0.995,
+        epsilon_steps=1000000,
         memory_size=10000,
         memory_alpha=0.4,
         memory_beta=0.3,
@@ -45,7 +47,7 @@ class DQN:
         self.gamma = gamma
         self.epsilon = epsilon
         self.epsilon_min = epsilon_min
-        self.epsilon_decay = epsilon_decay
+        self.epsilon_step_size = (epsilon - epsilon_min) / epsilon_steps
 
         self.memory = Memory(memory_size, alpha=memory_alpha, beta=memory_beta)
 
@@ -89,32 +91,51 @@ class DQN:
         states, actions, rewards, next_states = zip(*batch)
 
         states = torch.stack(states).to(self.device)
-        next_states = torch.stack(next_states).to(self.device)
         rewards = torch.tensor(rewards).to(self.device).unsqueeze(1)
         actions = torch.tensor(actions, device=self.device).unsqueeze(1)
 
-        q_pred = self.net(states).gather(0, actions)
+        non_final_mask = torch.tensor(
+            tuple(map(lambda s: s is not None, next_states)),
+            device=self.device,
+            dtype=torch.bool,
+        )
+        next_states = [s for s in next_states if s is not None]
+        next_states = torch.stack(next_states).to(self.device)
 
+        q_target = rewards
         with torch.no_grad():
             next_actions = self.net(next_states).argmax(1, keepdim=True)
-            next_q = self.target_net(next_states).gather(0, next_actions)
+            next_q = self.target_net(next_states).gather(1, next_actions)
 
-            q_target = rewards + self.gamma * next_q
+            q_target[non_final_mask] += self.gamma * next_q
 
         self.optim.zero_grad()
+
+        q_pred = self.net(states).gather(1, actions)
 
         loss = self.criterion(q_pred, q_target)
         loss.backward()
 
         self.optim.step()
 
+        td_error = q_pred - q_target
+        for i, idx in enumerate(idxs):
+            self.memory.update(idx, td_error[i].item())
+
         return loss.item()
 
-    def decay_epsilon(self):
-        self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
+    def step_epsilon(self):
+        self.epsilon = max(self.epsilon_min, self.epsilon -
+                           self.epsilon_step_size)
 
     def update_target(self):
         self.target_net.load_state_dict(self.net.state_dict())
+
+    def save(self, path):
+        torch.save(self.net.state_dict(), path)
+
+    def load(self, path):
+        self.net.load_state_dict(torch.load(path))
 
 
 class Net(nn.Module):
@@ -122,29 +143,26 @@ class Net(nn.Module):
         super().__init__()
 
         self.conv = nn.Sequential(
-            nn.Conv2d(input_shape[0], 32, kernel_size=3),
+            nn.Conv2d(input_shape[0], 32, kernel_size=8, stride=4),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3),
-            nn.ReLU(),
-            nn.MaxPool2d(3),
-            nn.Conv2d(64, 64, kernel_size=3),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
             nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3),
             nn.ReLU(),
-            nn.MaxPool2d(3),
-            nn.Conv2d(64, 128, kernel_size=3),
-            nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3),
-            nn.ReLU(),
-            nn.Flatten(),
+            nn.Flatten()
         )
-
-        conv_out_size = self._get_conv_out(input_shape)
-        print(conv_out_size)
 
         self.fc = nn.Sequential(
-            nn.Linear(conv_out_size, 512), nn.ReLU(), nn.Linear(512, n_actions),
+            nn.Linear(4096, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, n_actions),
         )
+
+        # Count number of parameters
+        self.n_params = sum(p.numel() for p in self.parameters())
+        print(self.n_params)
 
     def _get_conv_out(self, shape):
         o = self.conv(torch.zeros(1, *shape))
@@ -153,4 +171,3 @@ class Net(nn.Module):
     def forward(self, x):
         x = self.conv(x)
         return self.fc(x)
-

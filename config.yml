@@ -1,25 +1,38 @@
-seed: 283
+seed: 101
 
-num_episodes: 50000
+num_episodes: 5000
 gamma: 0.99
-max_steps_without_reward: 200
-target_update_interval: 100
+target_update_interval: 1000
 
-memory_size: 100000
+no_reward_timeout: 200
+no_reward_incr: 1
+no_reward_max: 400
+
+memory_size: 50000
 memory_alpha: 0.6
 memory_beta: 0.4
 
-epsilon: 1.0
-epsilon_decay: 0.995
+epsilon: 0.95
 epsilon_min: 0.1
+epsilon_steps: 500000
 
-batch_size: 16
+batch_size: 32
 lr: 0.001
+
+actions:
+  turn:
+    - -1.0
+    - 0.0
+    - 1.0
+  gas:
+    - 0.0
+    - 0.5
+    - 1.0
+  brake:
+    - 0.0
+    - 0.2
 
 save_dir: ckpt
 save_every: 100
 
 render: true
-
-plot: true
-plot_interval: 80
