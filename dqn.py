@@ -38,7 +38,7 @@ class DQN:
 
         self.device = device
 
-        self.criterion = nn.MSELoss()
+        self.criterion = nn.MSELoss(reduction="none")
         self.optim = optim.Adam(self.net.parameters(), lr=lr)
 
         self.input_shape = input_shape
@@ -87,6 +87,7 @@ class DQN:
             return 0.0
 
         batch, idxs, is_weight = self.memory.sample(batch_size)
+        is_weight = torch.FloatTensor(is_weight).to(self.device).unsqueeze(1)
 
         states, actions, rewards, next_states = zip(*batch)
 
@@ -114,6 +115,8 @@ class DQN:
         q_pred = self.net(states).gather(1, actions)
 
         loss = self.criterion(q_pred, q_target)
+        loss = (loss * is_weight).mean()
+
         loss.backward()
 
         self.optim.step()

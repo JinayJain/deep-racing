@@ -2,11 +2,11 @@ seed: 101
 
 num_episodes: 5000
 gamma: 0.99
-target_update_interval: 1000
+target_update_interval: 10000
 
-no_reward_timeout: 200
+no_reward_timeout: 100
 no_reward_incr: 1
-no_reward_max: 400
+no_reward_max: 100
 
 memory_size: 50000
 memory_alpha: 0.6
@@ -16,18 +16,18 @@ epsilon: 0.95
 epsilon_min: 0.1
 epsilon_steps: 500000
 
-batch_size: 32
+batch_size: 64
 lr: 0.001
 
 actions:
   turn:
-    - -1.0
+    - -0.75
     - 0.0
-    - 1.0
+    - 0.75
   gas:
     - 0.0
     - 0.5
-    - 1.0
+    - 0.8
   brake:
     - 0.0
     - 0.2

@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torchvision.transforms as T
 import yaml
+import matplotlib.pyplot as plt
 
 import time
 from itertools import count
@@ -32,9 +33,12 @@ def preprocess(img):
 
     img = np.ascontiguousarray(img, dtype=np.float32)
     img = torch.from_numpy(img).permute(2, 0, 1)
-    # img = grayscale(img)
+    img = grayscale(img)
     img /= 255.0
     # img = downsize(img)
+
+    # remove score number from image
+    img[:, 84:, :18] = 0
 
     return img
 
@@ -103,14 +107,12 @@ def main():
                 action, q_value = dqn.get_action(state)
 
                 screen, reward, done, _ = env.step(action_space[action])
+                total_reward += reward
 
                 # Clip reward to -1, 1
-                if reward > 0:
-                    reward = 5
+                reward = np.clip(reward, -1, 1, dtype=np.float32)
 
                 next_state = preprocess(screen)
-
-                total_reward += reward
 
                 if reward > 0:
                     last_reward = t

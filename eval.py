@@ -3,9 +3,10 @@ from itertools import count
 
 import gym
 import torch
+import yaml
 
 from dqn import DQN
-from main import preprocess
+from main import make_action_space, preprocess
 
 
 def main():
@@ -13,9 +14,14 @@ def main():
 
     state = preprocess(env.reset())
 
+    with open('config.yml', 'r') as f:
+        cfg = yaml.safe_load(f)
+
+    action_space = make_action_space(cfg["actions"])
+
     dqn = DQN(
         state.shape,
-        len(ACTIONS)
+        len(action_space)
     )
 
     dqn.load('ckpt/700.pt')
@@ -24,7 +30,7 @@ def main():
         if t % 3 == 0:
             action, q_value = dqn.get_action(state, use_epsilon=False)
 
-        screen, reward, done, _ = env.step(ACTIONS[action][1])
+        screen, reward, done, _ = env.step(action_space[action])
 
         state = preprocess(screen)
 
