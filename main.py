@@ -50,7 +50,12 @@ def make_action_space(action_levels):
         for j in range(len(action_levels["gas"])):
             for k in range(len(action_levels["brake"])):
                 actions.append(
-                    [action_levels["turn"][i], action_levels["gas"][j], action_levels["brake"][k]])
+                    [
+                        action_levels["turn"][i],
+                        action_levels["gas"][j],
+                        action_levels["brake"][k],
+                    ]
+                )
 
     return actions
 
@@ -83,11 +88,13 @@ def main():
         memory_beta=cfg["memory_beta"],
     )
 
-    loss_plot = Plotter("Loss", "Step", "Loss", update_interval=50)
-    episode_plot = Plotter("Within Episode", "Step",
-                           "Value", update_interval=50)
+    plot = cfg["plot"]
+    loss_plot = Plotter("Loss", "Step", "Loss", update_interval=50, plot=plot)
+    episode_plot = Plotter(
+        "Within Episode", "Step", "Value", update_interval=50, plot=plot
+    )
 
-    episode_summary_plot = Plotter("Episode Summary", "Episode", "Value")
+    episode_summary_plot = Plotter("Episode Summary", "Episode", "Value", plot=plot)
 
     global_counter = count()
     no_reward_timeout = cfg["no_reward_timeout"]
@@ -147,13 +154,15 @@ def main():
         end = time.time()
 
         print(
-            f"Episode {ep} finished | FPS: {t / (end - start):.2f} | Total Reward: {total_reward:.2f}")
+            f"Episode {ep} finished | FPS: {t / (end - start):.2f} | Total Reward: {total_reward:.2f}"
+        )
 
         episode_summary_plot.append(ep, total_reward, "Total Reward")
         episode_summary_plot.append(ep, dqn.epsilon, "Epsilon")
 
         no_reward_timeout = min(
-            no_reward_timeout + cfg["no_reward_incr"], cfg["no_reward_max"])
+            no_reward_timeout + cfg["no_reward_incr"], cfg["no_reward_max"]
+        )
 
         if ep % cfg["save_every"] == 0:
             dqn.save(path.join(cfg["save_dir"], f"{ep}.pt"))

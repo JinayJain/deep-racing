@@ -20,19 +20,20 @@ batch_size: 64
 lr: 0.001
 
 actions:
-  turn:
-    - -0.75
-    - 0.0
-    - 0.75
-  gas:
-    - 0.0
-    - 0.5
-    - 0.8
-  brake:
-    - 0.0
-    - 0.2
+    turn:
+        - -0.75
+        - 0.0
+        - 0.75
+    gas:
+        - 0.0
+        - 0.5
+        - 0.8
+    brake:
+        - 0.0
+        - 0.2
 
 save_dir: ckpt
 save_every: 100
 
 render: true
+plot: false
