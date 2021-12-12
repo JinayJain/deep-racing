@@ -115,7 +115,8 @@ class DQN:
         q_pred = self.net(states).gather(1, actions)
 
         loss = self.criterion(q_pred, q_target)
-        loss = (loss * is_weight).mean()
+        loss = loss.mean()
+        # loss = (loss * is_weight).mean()
 
         loss.backward()
 

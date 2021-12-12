@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import time
 from itertools import count
 from os import path
+from collections import deque
 
 from dqn import DQN
 
@@ -26,18 +27,14 @@ def load_config():
 
 
 def preprocess(img):
-    # Normalize according to the pre-trained model (https://pytorch.org/vision/stable/models.html)
-    # normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    downsize = T.Resize((64, 64))
     grayscale = T.Grayscale()
 
     img = np.ascontiguousarray(img, dtype=np.float32)
     img = torch.from_numpy(img).permute(2, 0, 1)
     img = grayscale(img)
     img /= 255.0
-    # img = downsize(img)
 
-    # remove score number from image
+    # remove score number from image (set pixels to 0)
     img[:, 84:, :18] = 0
 
     return img
@@ -69,11 +66,10 @@ def main():
 
     env = gym.make("CarRacing-v0")
 
-    sample_state = preprocess(env.reset())
+    sample_state = preprocess(env.reset()).repeat(
+        cfg["frame_buffer_size"], 1, 1)
 
     action_space = make_action_space(cfg["actions"])
-
-    print(action_space)
 
     dqn = DQN(
         sample_state.shape,
@@ -94,13 +90,17 @@ def main():
         "Within Episode", "Step", "Value", update_interval=50, plot=plot
     )
 
-    episode_summary_plot = Plotter("Episode Summary", "Episode", "Value", plot=plot)
+    episode_summary_plot = Plotter(
+        "Episode Summary", "Episode", "Value", plot=plot)
 
     global_counter = count()
     no_reward_timeout = cfg["no_reward_timeout"]
 
     for ep in range(cfg["num_episodes"]):
-        state = preprocess(env.reset())
+        frame_buffer = deque(maxlen=cfg["frame_buffer_size"])
+
+        frame = preprocess(env.reset())
+        frame_buffer.append(frame)
 
         loss_plot.reset()
         episode_plot.reset()
@@ -109,7 +109,19 @@ def main():
         total_reward = 0
 
         start = time.time()
+
         for t, global_t in zip(count(), global_counter):
+            # Fill in initial frame buffer
+            if len(frame_buffer) < cfg["frame_buffer_size"]:
+                screen, _, _, _ = env.step(env.action_space.sample())
+                frame = preprocess(screen)
+                frame_buffer.append(frame)
+
+                if len(frame_buffer) < cfg["frame_buffer_size"]:
+                    continue
+
+                state = torch.cat(tuple(frame_buffer), dim=0)
+
             with torch.no_grad():
                 action, q_value = dqn.get_action(state)
 
@@ -119,10 +131,15 @@ def main():
                 # Clip reward to -1, 1
                 reward = np.clip(reward, -1, 1, dtype=np.float32)
 
-                next_state = preprocess(screen)
-
+                # Track last reward for timeout
                 if reward > 0:
                     last_reward = t
+
+                # Add next frame to frame buffer
+                next_frame = preprocess(screen)
+                frame_buffer.append(next_frame)
+
+                next_state = torch.cat(tuple(frame_buffer), dim=0)
 
                 if done or (t - last_reward) > no_reward_timeout:
                     error = (q_value[action] - reward).item()

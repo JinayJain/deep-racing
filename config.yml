@@ -1,12 +1,14 @@
 seed: 101
 
+frame_buffer_size: 3
+
 num_episodes: 5000
 gamma: 0.99
-target_update_interval: 10000
+target_update_interval: 5000
 
-no_reward_timeout: 100
+no_reward_timeout: 200
 no_reward_incr: 1
-no_reward_max: 100
+no_reward_max: 1000
 
 memory_size: 50000
 memory_alpha: 0.6
@@ -20,20 +22,20 @@ batch_size: 64
 lr: 0.001
 
 actions:
-    turn:
-        - -0.75
-        - 0.0
-        - 0.75
-    gas:
-        - 0.0
-        - 0.5
-        - 0.8
-    brake:
-        - 0.0
-        - 0.2
+  turn:
+    - -0.75
+    - 0.0
+    - 0.75
+  gas:
+    - 0.0
+    - 0.5
+    - 0.8
+  brake:
+    - 0.0
+    - 0.2
 
 save_dir: ckpt
 save_every: 100
 
 render: true
-plot: false
+plot: true
