@@ -5,7 +5,8 @@ from ppo import PPO
 def main():
     # env = gym.make("Pendulum-v1")
     # env = gym.make("LunarLanderContinuous-v2")
-    env = gym.make("BipedalWalker-v3")
+    # env = gym.make("BipedalWalker-v3")
+    env = gym.make("CarRacing-v0")
 
     ppo = PPO(env)
     ppo.train()

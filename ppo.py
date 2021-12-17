@@ -58,10 +58,10 @@ class PPO:
         state_sample = self.preprocess(self.env.observation_space.sample())
         action_sample = env.action_space.sample()
         print(action_sample, state_sample.shape)
-        self.actor = Actor(state_sample.shape[0], action_sample.shape[0]).to(device)
+        self.actor = Actor(state_sample.shape, action_sample.shape[0]).to(device)
         self.actor_optim = optim.Adam(self.actor.parameters(), lr=lr)
 
-        self.critic = Critic(state_sample.shape[0]).to(device)
+        self.critic = Critic(state_sample.shape).to(device)
         self.critic_optim = optim.Adam(self.critic.parameters(), lr=lr)
 
         cov_vector = torch.full(action_sample.shape, variance)
@@ -172,7 +172,7 @@ class PPO:
                 t += 1
 
                 action, log_prob = self.get_action(state)
-                value = self.critic(state).item()
+                value = self.critic(state.unsqueeze(0)).item()
 
                 next_frame, reward, done, _ = self.env.step(action.numpy())
                 total_reward += reward
@@ -219,7 +219,7 @@ class PPO:
 
     def get_action(self, state):
         with torch.no_grad():
-            means = self.actor(state).cpu()
+            means = self.actor(state.unsqueeze(0)).cpu().squeeze(0)
 
             policy = MultivariateNormal(means, covariance_matrix=self.cov_matrix)
             action = policy.sample()
@@ -227,11 +227,11 @@ class PPO:
         return action, policy.log_prob(action)
 
     def _make_preprocess(self):
-        # return T.Compose([T.ToPILImage(), T.Grayscale(), T.ToTensor()])
-        def preprocess(x):
-            return torch.tensor(x, dtype=torch.float32)
+        return T.Compose([T.ToPILImage(), T.Grayscale(), T.ToTensor()])
+        # def preprocess(x):
+        #     return torch.tensor(x, dtype=torch.float32)
 
-        return preprocess
+        # return preprocess
 
     def save(self, folder, episode):
         torch.save(self.actor.state_dict(), path.join(folder, f"{episode}_actor.pth"))
