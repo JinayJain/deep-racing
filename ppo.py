@@ -39,6 +39,7 @@ class PPO:
         variance=0.2,
         clip=0.2,
         save_interval=50,
+        render_interval=50,
     ):
         self.env = env
         self.lr = lr
@@ -50,6 +51,7 @@ class PPO:
         self.num_batches = num_batches
         self.batch_size = batch_size
         self.save_interval = save_interval
+        self.render_interval = render_interval
 
         self.preprocess = self._make_preprocess()
 
@@ -187,7 +189,7 @@ class PPO:
                 if done:
                     break
 
-                if self.n_episodes % 20 == 0:
+                if self.n_episodes % self.render_interval == 0:
                     self.env.render()
 
             for i in reversed(range(len(episode_rewards) - 1)):
@@ -234,4 +236,12 @@ class PPO:
     def save(self, folder, episode):
         torch.save(self.actor.state_dict(), path.join(folder, f"{episode}_actor.pth"))
         torch.save(self.critic.state_dict(), path.join(folder, f"{episode}_critic.pth"))
+
+    def load(self, folder, episode):
+        self.actor.load_state_dict(
+            torch.load(path.join(folder, f"{episode}_actor.pth"))
+        )
+        self.critic.load_state_dict(
+            torch.load(path.join(folder, f"{episode}_critic.pth"))
+        )
 
