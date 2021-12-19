@@ -12,8 +12,11 @@ class Memory(Dataset):
         return len(self.states)
 
     def __getitem__(self, idx):
-        # return states and each additional data in args at the same index
-        return self.states[idx], *[data[idx] for data in self.data]
+        # return states and each additional data in args at the same index (no tuple unpacking)
 
+        item = (self.states[idx],)
 
+        for data in self.data:
+            item += (data[idx],)
 
+        return item

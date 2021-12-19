@@ -63,7 +63,11 @@ class Actor(nn.Module):
         conv_out_size = self._get_conv_out(state_dim)
 
         self.fc = nn.Sequential(
-            nn.Linear(conv_out_size, 512), nn.ReLU(), nn.Linear(512, action_dim),
+            nn.Linear(conv_out_size, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, action_dim)
         )
 
     def _get_conv_out(self, shape):
@@ -92,7 +96,11 @@ class Critic(nn.Module):
         conv_out_size = self._get_conv_out(state_dim)
 
         self.fc = nn.Sequential(
-            nn.Linear(conv_out_size, 512), nn.ReLU(), nn.Linear(512, 1),
+            nn.Linear(conv_out_size, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1)
         )
 
     def _get_conv_out(self, shape):

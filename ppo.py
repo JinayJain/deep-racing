@@ -1,4 +1,6 @@
+from typing import Callable, Tuple
 import gym
+import numpy as np
 import torch
 from torch import optim, nn
 import torchvision.transforms as T
@@ -6,6 +8,7 @@ from torch.distributions import MultivariateNormal
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from os import path
+import cv2
 
 from net import Actor, Critic
 from util.memory import Memory
@@ -21,8 +24,8 @@ PPO Algorithm:
     b. Compute the rewards-to-go for each trajectory
 """
 
-# device = torch.device("cuda" if torch.cuda.is_available else "cpu")
-device = torch.device("cpu")
+device = torch.device("cuda" if torch.cuda.is_available else "cpu")
+# device = torch.device("cpu")
 
 
 class PPO:
@@ -30,16 +33,18 @@ class PPO:
         self,
         env: gym.Env,
         lr=1e-3,
-        num_batches=5000,
-        epoch_timesteps=2048,
-        max_episode_timesteps=1024,
-        batch_size=256,
+        num_steps=5000,
+        epoch_timesteps=512,
+        max_episode_timesteps=2048,
+        reward_timeout=150,
+        batch_size=128,
         n_epochs=5,
         gamma=0.99,
         variance=0.2,
+        variance_decay=0.999,
         clip=0.2,
         save_interval=50,
-        render_interval=50,
+        render_interval=1,
     ):
         self.env = env
         self.lr = lr
@@ -48,35 +53,45 @@ class PPO:
         self.max_episode_timesteps = max_episode_timesteps
         self.gamma = gamma
         self.clip = clip
-        self.num_batches = num_batches
+        self.num_steps = num_steps
         self.batch_size = batch_size
         self.save_interval = save_interval
         self.render_interval = render_interval
+        self.reward_timeout = reward_timeout
+        self.variance = variance
+        self.variance_decay = variance_decay
 
-        self.preprocess = self._make_preprocess()
+        self.n_episodes = 0
+        self.flipped = False
+
+        self.preprocess = self._make_preprocess()  # preprocesses states
+        (
+            self.n_actions,
+            self.postprocess,
+        ) = self._make_postprocess()  # postprocesses actions
 
         state_sample = self.preprocess(self.env.observation_space.sample())
-        action_sample = env.action_space.sample()
-        print(action_sample, state_sample.shape)
-        self.actor = Actor(state_sample.shape, action_sample.shape[0]).to(device)
+        self.actor = Actor(state_sample.shape, self.n_actions).to(device)
         self.actor_optim = optim.Adam(self.actor.parameters(), lr=lr)
 
         self.critic = Critic(state_sample.shape).to(device)
         self.critic_optim = optim.Adam(self.critic.parameters(), lr=lr)
-
-        cov_vector = torch.full(action_sample.shape, variance)
-        self.cov_matrix = torch.diag(cov_vector)
-
-        self.n_episodes = 0
 
     def train(self):
         """
         Train the PPO model
         """
 
-        for b in range(self.num_batches):
+        for step in range(self.num_steps):
             # Compute advantage with "old" policy
             with torch.no_grad():
+                # decay the variance and compute covariance matrix
+                self.variance *= self.variance_decay
+                cov_vector = torch.full((self.n_actions,), self.variance)
+                self.cov_matrix = torch.diag(cov_vector)
+
+                print(f"Variance: {self.variance}")
+
                 (
                     full_states,
                     full_actions,
@@ -159,14 +174,17 @@ class PPO:
 
         batch_values = []
 
-        first_episode = True
         while t < self.epoch_timesteps:
-            state = self.preprocess(self.env.reset()).to(device)
+            # randomly flip the environment
+            self.flipped = np.random.rand() < 0.5
 
             episode_rewards = []
 
             total_reward = 0
+            last_reward_step = 0
             self.n_episodes += 1
+
+            state = self.preprocess(self.env.reset()).to(device)
 
             for i in range(self.max_episode_timesteps):
                 t += 1
@@ -174,8 +192,14 @@ class PPO:
                 action, log_prob = self.get_action(state)
                 value = self.critic(state.unsqueeze(0)).item()
 
-                next_frame, reward, done, _ = self.env.step(action.numpy())
+                next_frame, reward, done, _ = self.env.step(self.postprocess(action))
                 total_reward += reward
+
+                # clip reward
+                reward = min(reward, 1)
+
+                if reward > 0:
+                    last_reward_step = i
 
                 batch_states.append(state)
                 batch_actions.append(action)
@@ -186,7 +210,12 @@ class PPO:
 
                 state = self.preprocess(next_frame).to(device)
 
-                if done:
+                if done or i - last_reward_step > self.reward_timeout:
+                    if done:
+                        print("Got done signal")
+                    else:
+                        print("Reward timed out")
+
                     break
 
                 if self.n_episodes % self.render_interval == 0:
@@ -197,8 +226,6 @@ class PPO:
 
             batch_rtgs += episode_rewards
             batch_ep_rewards.append(total_reward)
-
-            first_episode = False
 
             if self.n_episodes % self.save_interval == 0:
                 self.save("ckpt", self.n_episodes)
@@ -226,22 +253,62 @@ class PPO:
 
         return action, policy.log_prob(action)
 
-    def _make_preprocess(self):
-        return T.Compose([T.ToPILImage(), T.Grayscale(), T.ToTensor()])
-        # def preprocess(x):
-        #     return torch.tensor(x, dtype=torch.float32)
+    def _make_preprocess(self) -> Callable:
+        transform = T.Compose([T.ToPILImage(), T.Grayscale(), T.ToTensor()])
 
-        # return preprocess
+        def preprocess(x: np.ndarray) -> torch.Tensor:
+            # # remove score from screen
+            # x[85:95, 0:15, :] = 0
+
+            # normalize the grass
+            GREEN_MIN = (100, 200, 100)
+            GREEN_MAX = (102, 229, 102)
+
+            mask = cv2.inRange(x, GREEN_MIN, GREEN_MAX)
+
+            # mask out pitch black
+            mask_black = cv2.inRange(x, (0, 0, 0), (1, 1, 1))
+
+            # set masked pixels to white
+            x[mask == 255] = 255
+            x[mask_black == 255] = 255
+
+            # flip the image if needed
+            if self.flipped:
+                x = np.flip(x, 1)
+
+            x = transform(x)
+
+            return x
+
+        return preprocess
+
+    def _make_postprocess(self) -> Tuple[int, Callable]:
+        num_actions = 2
+
+        def postprocess(action):
+            mapped_action = torch.zeros(3)
+
+            # flip steering if flipped
+            mapped_action[0] = action[0] if not self.flipped else -action[0]
+
+            # map [-1, 1] throttle to gas and brakes
+            mapped_action[1] = max(0, action[1])
+            mapped_action[2] = max(0, -action[1])
+
+            return mapped_action.numpy()
+
+        return num_actions, postprocess
 
     def save(self, folder, episode):
         torch.save(self.actor.state_dict(), path.join(folder, f"{episode}_actor.pth"))
         torch.save(self.critic.state_dict(), path.join(folder, f"{episode}_critic.pth"))
 
     def load(self, folder, episode):
+        print("loading checkpoint")
         self.actor.load_state_dict(
             torch.load(path.join(folder, f"{episode}_actor.pth"))
         )
         self.critic.load_state_dict(
             torch.load(path.join(folder, f"{episode}_critic.pth"))
         )
-
