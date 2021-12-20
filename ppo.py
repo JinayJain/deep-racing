@@ -12,7 +12,7 @@ import cv2
 import csv
 from time import sleep
 
-from net import Actor, Critic
+from net import ActorCritic
 from util.memory import Memory
 
 """
@@ -38,15 +38,16 @@ class PPO:
         num_steps=5000,
         epoch_timesteps=512,
         max_episode_timesteps=2048,
-        reward_timeout=100,
+        reward_timeout=500,
         batch_size=128,
         n_epochs=10,
         gamma=0.99,
-        variance=0.05,
+        variance=0.2,
         variance_decay=0.999,
         clip=0.1,
         save_interval=50,
         render_interval=1,
+        value_coef=0.5,
     ):
         self.env = env
         self.lr = lr
@@ -62,6 +63,7 @@ class PPO:
         self.reward_timeout = reward_timeout
         self.variance = variance
         self.variance_decay = variance_decay
+        self.value_coef = value_coef
 
         self.n_episodes = 0
         self.flipped = False
@@ -73,11 +75,8 @@ class PPO:
         ) = self._make_postprocess()  # postprocesses actions
 
         state_sample = self.preprocess(self.env.observation_space.sample())
-        self.actor = Actor(state_sample.shape, self.n_actions).to(device)
-        self.actor_optim = optim.Adam(self.actor.parameters(), lr=lr)
-
-        self.critic = Critic(state_sample.shape).to(device)
-        self.critic_optim = optim.Adam(self.critic.parameters(), lr=lr)
+        self.net = ActorCritic(state_sample.shape, self.n_actions).to(device)
+        self.optim = optim.Adam(self.net.parameters(), lr=lr)
 
         self.episode_summaries = []
 
@@ -104,11 +103,15 @@ class PPO:
                     full_ep_rewards,
                 ) = self.sample_trajectories()
 
-                V = self.critic(full_states).squeeze(1)
-                full_adv = full_rtgs - V
+                _, values = self.net(full_states)
+                values = values.squeeze(1)
+
+                full_adv = full_rtgs - values
                 full_adv = (full_adv - full_adv.mean()) / full_adv.std()
 
-            print(sum(full_ep_rewards) / len(full_ep_rewards))
+            print(
+                f"Episode {self.n_episodes} | Average Reward: {sum(full_ep_rewards) / len(full_ep_rewards)}"
+            )
 
             # Assemble batched dataset
             memory = Memory(
@@ -128,9 +131,9 @@ class PPO:
                     batch_rtgs,
                 ) in memory_loader:
                     # Get the current policy's action and value estimates
-                    means = self.actor(batch_states)
+                    actions, values = self.net(batch_states)
                     curr_policy = MultivariateNormal(
-                        means, covariance_matrix=self.cov_matrix.to(device)
+                        actions, covariance_matrix=self.cov_matrix.to(device)
                     )
 
                     # Compute the clipped surrogate policy loss from PPO paper
@@ -144,24 +147,22 @@ class PPO:
                         * batch_adv
                     )
 
-                    # print((policy_loss_raw - policy_loss_clipped).abs().sum().item())
-
-                    V = self.critic(batch_states).squeeze(1)
-
                     policy_loss = (
                         -torch.min(policy_loss_raw, policy_loss_clipped)
                     ).mean()
-                    value_loss = nn.MSELoss()(V, batch_rtgs)
+                    value_loss = nn.MSELoss()(values, batch_rtgs)
 
-                    # Update networks
-                    self.actor_optim.zero_grad()
-                    self.critic_optim.zero_grad()
+                    combined_loss = policy_loss + self.value_coef * value_loss
+                    print(
+                        f"Loss: {combined_loss.item()} = {policy_loss.item()} (actor) + {self.value_coef * value_loss.item()} (critic)"
+                    )
 
-                    policy_loss.backward()
-                    value_loss.backward()
+                    # Update network
+                    self.optim.zero_grad()
 
-                    self.actor_optim.step()
-                    self.critic_optim.step()
+                    combined_loss.backward()
+
+                    self.optim.step()
 
     def sample_trajectories(self):
         """
@@ -193,10 +194,10 @@ class PPO:
             for i in range(self.max_episode_timesteps):
                 t += 1
 
-                sleep(0.05)
-
+                # FIXME: running the same network twice, can be optimized
                 action, log_prob = self.get_action(state)
-                value = self.critic(state.unsqueeze(0)).item()
+                _, value = self.net(state.unsqueeze(0))
+                value = value.item()
 
                 next_frame, reward, done, _ = self.env.step(self.postprocess(action))
                 total_reward += reward
@@ -259,9 +260,10 @@ class PPO:
 
     def get_action(self, state):
         with torch.no_grad():
-            means = self.actor(state.unsqueeze(0)).cpu().squeeze(0)
+            actions, _ = self.net(state.unsqueeze(0))
+            actions = actions.cpu().squeeze(0)
 
-            policy = MultivariateNormal(means, covariance_matrix=self.cov_matrix)
+            policy = MultivariateNormal(actions, covariance_matrix=self.cov_matrix)
             action = policy.sample()
 
         return action, policy.log_prob(action)
@@ -314,15 +316,9 @@ class PPO:
         return num_actions, postprocess
 
     def save(self, folder, episode):
-        torch.save(self.actor.state_dict(), path.join(folder, f"{episode}_actor.pth"))
-        torch.save(self.critic.state_dict(), path.join(folder, f"{episode}_critic.pth"))
+        torch.save(self.net.state_dict(), path.join(folder, f"ac_{episode}.pth"))
 
     def load(self, folder, episode):
-        print("loading checkpoint")
-        self.actor.load_state_dict(
-            torch.load(path.join(folder, f"{episode}_actor.pth"))
-        )
-        self.critic.load_state_dict(
-            torch.load(path.join(folder, f"{episode}_critic.pth"))
-        )
+        print(f"Loading checkpoint from episode {episode} in {folder}")
+        self.net.load_state_dict(torch.load(path.join(folder, f"ac_{episode}.pth")))
         self.n_episodes = episode

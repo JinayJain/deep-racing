@@ -6,7 +6,6 @@ def main():
     env = gym.make("CarRacing-v0")
 
     ppo = PPO(env)
-    ppo.load("ckpt", 1100)
     ppo.train()
 
     env.close()
