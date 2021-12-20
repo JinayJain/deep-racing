@@ -9,6 +9,8 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from os import path
 import cv2
+import csv
+from time import sleep
 
 from net import Actor, Critic
 from util.memory import Memory
@@ -36,13 +38,13 @@ class PPO:
         num_steps=5000,
         epoch_timesteps=512,
         max_episode_timesteps=2048,
-        reward_timeout=150,
+        reward_timeout=100,
         batch_size=128,
-        n_epochs=5,
+        n_epochs=10,
         gamma=0.99,
-        variance=0.2,
+        variance=0.05,
         variance_decay=0.999,
-        clip=0.2,
+        clip=0.1,
         save_interval=50,
         render_interval=1,
     ):
@@ -76,6 +78,8 @@ class PPO:
 
         self.critic = Critic(state_sample.shape).to(device)
         self.critic_optim = optim.Adam(self.critic.parameters(), lr=lr)
+
+        self.episode_summaries = []
 
     def train(self):
         """
@@ -189,6 +193,8 @@ class PPO:
             for i in range(self.max_episode_timesteps):
                 t += 1
 
+                sleep(0.05)
+
                 action, log_prob = self.get_action(state)
                 value = self.critic(state.unsqueeze(0)).item()
 
@@ -227,8 +233,15 @@ class PPO:
             batch_rtgs += episode_rewards
             batch_ep_rewards.append(total_reward)
 
+            self.episode_summaries.append((self.n_episodes, total_reward))
+
             if self.n_episodes % self.save_interval == 0:
                 self.save("ckpt", self.n_episodes)
+
+                # save episode summaries as csv
+                with open("episode_summaries.csv", "w") as f:
+                    writer = csv.writer(f)
+                    writer.writerows(self.episode_summaries)
 
         # Convert to tensors
         batch_states = torch.stack(batch_states).to(device).float().detach()
@@ -257,8 +270,8 @@ class PPO:
         transform = T.Compose([T.ToPILImage(), T.Grayscale(), T.ToTensor()])
 
         def preprocess(x: np.ndarray) -> torch.Tensor:
-            # # remove score from screen
-            # x[85:95, 0:15, :] = 0
+            # remove score from screen
+            x[85:95, 0:15, :] = 0
 
             # normalize the grass
             GREEN_MIN = (100, 200, 100)
@@ -296,7 +309,7 @@ class PPO:
             mapped_action[1] = max(0, action[1])
             mapped_action[2] = max(0, -action[1])
 
-            return mapped_action.numpy()
+            return mapped_action.numpy().clip(-1, 1)
 
         return num_actions, postprocess
 
@@ -312,3 +325,4 @@ class PPO:
         self.critic.load_state_dict(
             torch.load(path.join(folder, f"{episode}_critic.pth"))
         )
+        self.n_episodes = episode

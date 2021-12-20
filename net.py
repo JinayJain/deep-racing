@@ -67,7 +67,8 @@ class Actor(nn.Module):
             nn.ReLU(),
             nn.Linear(256, 256),
             nn.ReLU(),
-            nn.Linear(256, action_dim)
+            nn.Linear(256, action_dim),
+            nn.Tanh(),
         )
 
     def _get_conv_out(self, shape):
@@ -100,7 +101,7 @@ class Critic(nn.Module):
             nn.ReLU(),
             nn.Linear(256, 256),
             nn.ReLU(),
-            nn.Linear(256, 1)
+            nn.Linear(256, 1),
         )
 
     def _get_conv_out(self, shape):
