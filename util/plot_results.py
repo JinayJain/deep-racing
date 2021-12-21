@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 def main():
     # read CSV of episode results
-    with open("episode_summaries.csv", "r") as f:
+    with open("summary.csv", "r") as f:
         reader = csv.reader(f)
         episodes = [(int(row[0]), float(row[1])) for row in reader]
 
@@ -13,7 +13,7 @@ def main():
         if i == 0:
             moving_avg.append(episodes[i][1])
         else:
-            moving_avg.append(0.95 * moving_avg[-1] + 0.05 * episodes[i][1])
+            moving_avg.append(0.99 * moving_avg[-1] + 0.01 * episodes[i][1])
 
     # plot results
     plt.style.use("fivethirtyeight")

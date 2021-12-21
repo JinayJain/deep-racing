@@ -9,7 +9,7 @@ def main():
     env = gym.make("CarRacing-v0")
 
     ppo = PPO(env)
-    ppo.load(CHECKPOINT_DIR, 1100)
+    ppo.load(CHECKPOINT_DIR, 900)
     ppo.sample_trajectories()
 
     env.close()

@@ -8,11 +8,11 @@ class ActorCritic(nn.Module):
         super().__init__()
 
         self.conv = nn.Sequential(
-            nn.Conv2d(state_dim[0], 32, kernel_size=8, stride=4),
+            nn.Conv2d(state_dim[0], 64, kernel_size=8, stride=4),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.Conv2d(64, 128, kernel_size=4, stride=2),
             nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1),
             nn.ReLU(),
             nn.Flatten(),
         )
@@ -22,12 +22,18 @@ class ActorCritic(nn.Module):
         self.actor = nn.Sequential(
             nn.Linear(conv_out_size, 128),
             nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
             nn.Linear(128, action_dim),
             nn.Tanh(),
         )
 
         self.critic = nn.Sequential(
-            nn.Linear(conv_out_size, 128), nn.ReLU(), nn.Linear(128, 1)
+            nn.Linear(conv_out_size, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, 1),
         )
 
     def _get_conv_out(self, shape):
