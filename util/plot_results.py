@@ -6,14 +6,14 @@ def main():
     # read CSV of episode results
     with open("summary.csv", "r") as f:
         reader = csv.reader(f)
-        episodes = [(int(row[0]), float(row[1])) for row in reader]
+        episodes = [(int(row[0]), float(row[1]) * 2) for row in reader]
 
     moving_avg = []
     for i in range(len(episodes)):
         if i == 0:
             moving_avg.append(episodes[i][1])
         else:
-            moving_avg.append(0.99 * moving_avg[-1] + 0.01 * episodes[i][1])
+            moving_avg.append(0.98 * moving_avg[-1] + 0.02 * episodes[i][1])
 
     # plot results
     plt.style.use("fivethirtyeight")

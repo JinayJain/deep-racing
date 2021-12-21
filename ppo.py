@@ -29,7 +29,7 @@ class PPO:
         num_steps=5000,
         epoch_timesteps=1024,
         max_episode_timesteps=1000,
-        reward_timeout=500,
+        reward_timeout=200,
         batch_size=128,
         n_epochs=5,
         gamma=0.99,
@@ -39,7 +39,6 @@ class PPO:
         render_interval=1,
         value_coef=0.05,
         frame_stack=3,
-        horizon=128,
     ):
         self.env = env
         self.lr = lr
@@ -126,7 +125,6 @@ class PPO:
                         full_log_probs,
                         full_rtgs,
                         full_ep_rewards,
-                        full_adv,
                     ) = self.sample_trajectories()
 
                     _, values = self.net(full_states)
@@ -233,7 +231,11 @@ class PPO:
                 "Episode in Progress...", total=self.max_episode_timesteps,
             )
 
+            action = self.env.action_space.sample()
             for i in range(self.max_episode_timesteps):
+                if i % 2 == 0:
+                    self.env.step(action)
+                    continue
 
                 self.progress.advance(episode_task)
                 t += 1
@@ -267,6 +269,7 @@ class PPO:
                 episode_rewards.append(reward)
 
                 frame = self.preprocess(next_frame).to(device)
+                action = self.postprocess(action)
                 frame_stack.append(frame)
 
                 if done or i - last_reward_step > self.reward_timeout:
