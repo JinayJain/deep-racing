@@ -12,12 +12,14 @@ class CarRacing(gym.Wrapper):
         self.frame_skip = frame_skip
         self.frame_stack = frame_stack
 
-        self.action_space = Box(low=-1, high=1, shape=(2,))
+        self.action_space = Box(low=0, high=1, shape=(2,))
         self.observation_space = Box(low=0, high=1, shape=(frame_stack, 96, 96))
 
         self.frame_buf = deque(maxlen=frame_stack)
 
     def preprocess(self, original_action):
+        original_action = original_action * 2 - 1 # map from [0, 1] to [-1, 1]
+
         action = np.zeros(3)
 
         action[0] = original_action[0]

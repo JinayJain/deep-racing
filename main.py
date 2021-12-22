@@ -1,28 +1,18 @@
 import gym
 
 from game import CarRacing
-from matplotlib import pyplot as plt
+from net import ActorCritic
+from ppo import PPO
 
 
 def main():
     env = CarRacing(frame_skip=4, frame_stack=4,)
+    net = ActorCritic(env.observation_space.shape, env.action_space.shape)
 
-    for _ in range(100):
-        env.reset()
-        for _ in range(100):
-            obs, reward, done, info = env.step(env.action_space.sample())
+    ppo = PPO(env, net)
+    ppo.train()
 
-            # plt.title(_)
-            # plt.imshow(obs[0])
-            # plt.show()
-            # plt.imshow(obs[1])
-            # plt.show()
-            # plt.imshow(obs[2])
-            # plt.show()
-            # plt.imshow(obs[3])
-            # plt.show()
-
-            env.render()
+    env.close()
 
 
 if __name__ == "__main__":
