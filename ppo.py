@@ -3,10 +3,10 @@ import torch
 from torch import nn, optim
 from torch.distributions import Beta
 from torch.utils.data import DataLoader
-import matplotlib.pyplot as plt
-from logger import Logger
+from os import path
 
 from memory import Memory
+from logger import Logger
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -26,6 +26,8 @@ class PPO:
         clip: float = 0.2,
         value_coef: float = 0.5,
         entropy_coef: float = 0.01,
+        save_dir: str = "ckpt",
+        save_interval: int = 100,
     ) -> None:
         self.env = env
         self.net = net.to(device)
@@ -40,21 +42,29 @@ class PPO:
         self.clip = clip
         self.value_coef = value_coef
         self.entropy_coef = entropy_coef
+        self.save_dir = save_dir
+        self.save_interval = save_interval
 
         self.optim = optim.Adam(self.net.parameters(), lr=self.lr)
         self.logger = Logger()
 
         self.state = self._to_tensor(env.reset())
+        self.alpha = 1.0
 
     def train(self):
         for step in range(self.num_steps):
+            self._set_step_params(step)
             # Collect episode trajectory for the horizon length
             with torch.no_grad():
                 memory = self.collect_trajectory(self.horizon)
 
+            self.logger.log("Total Reward", memory.rewards.sum().item())
+
             memory_loader = DataLoader(
                 memory, batch_size=self.batch_size, shuffle=True,
             )
+
+            avg_loss = 0.0
 
             for epoch in range(self.epochs_per_step):
                 for (
@@ -65,10 +75,17 @@ class PPO:
                     advantages,
                     values,
                 ) in memory_loader:
-                    self.train_batch(
+                    loss, _, _, _ = self.train_batch(
                         states, actions, log_probs, rewards, advantages, values
                     )
-                    self.logger.print()
+
+                    avg_loss += loss
+
+            self.logger.log("Loss", avg_loss / len(memory_loader))
+            self.logger.print(f"Step {step}")
+
+            if step % self.save_interval == 0:
+                self.save(self.save_dir, step)
 
     def train_batch(
         self,
@@ -79,11 +96,13 @@ class PPO:
         advantages: torch.Tensor,
         old_values: torch.Tensor,
     ):
+        self.optim.zero_grad()
+
         values, alpha, beta = self.net(states)
         values = values.squeeze(1)
 
         policy = Beta(alpha, beta)
-        entropy = policy.entropy()
+        entropy = policy.entropy().mean()
         log_probs = policy.log_prob(old_actions).sum(dim=1)
 
         ratio = (log_probs - old_log_probs).exp()  # same as policy / policy_old
@@ -93,10 +112,12 @@ class PPO:
         )
         policy_loss = -torch.min(policy_loss_raw, policy_loss_clip).mean()
 
-        value_target = advantages + old_values  # V_t = (Q_t - V_t) + V_t
+        with torch.no_grad():
+            value_target = advantages + old_values  # V_t = (Q_t - V_t) + V_t
+
         value_loss = nn.MSELoss()(values, value_target)
 
-        entropy_loss = -entropy.mean()
+        entropy_loss = -entropy
 
         loss = (
             policy_loss
@@ -104,17 +125,11 @@ class PPO:
             + self.entropy_coef * entropy_loss
         )
 
-        self.logger.log("Policy Loss", policy_loss.item())
-        self.logger.log("Value Loss", value_loss.item())
-        self.logger.log("Entropy Loss", entropy_loss.item())
-
-        self.optim.zero_grad()
-
         loss.backward()
 
         self.optim.step()
 
-        return loss.item(), policy_loss.item(), value_loss.item()
+        return loss.item(), policy_loss.item(), value_loss.item(), entropy_loss.item()
 
     def collect_trajectory(self, num_steps: int):
         states, actions, rewards, log_probs, values, dones = [], [], [], [], [], []
@@ -162,15 +177,10 @@ class PPO:
         rewards = torch.tensor(rewards, dtype=torch.float32, device=device)
         values = torch.cat(values)
 
-        # print shapes
-        print("states:", states.shape)
-        print("actions:", actions.shape)
-        print("log_probs:", log_probs.shape)
-        print("advantages:", advantages.shape)
-        print("rewards:", rewards.shape)
-        print("values:", values.shape)
-
         return Memory(states, actions, log_probs, rewards, advantages, values)
+
+    def save(self, folder: str, n: int):
+        torch.save(self.net.state_dict(), path.join(folder, f"net_{n}.pt"))
 
     def _compute_gae(self, rewards, values, dones, last_value):
         advantages = [0] * len(rewards)
@@ -190,4 +200,13 @@ class PPO:
 
     def _to_tensor(self, x):
         return torch.tensor(x, dtype=torch.float32, device=device).unsqueeze(0)
+
+    def _set_step_params(self, step):
+        # interpolate self.alpha between 1.0 and 0.0
+        self.alpha = 1.0 - step / self.num_steps
+
+        for param_group in self.optim.param_groups:
+            param_group["lr"] = self.lr * self.alpha
+
+        self.logger.log("Learning Rate", self.optim.param_groups[0]["lr"])
 

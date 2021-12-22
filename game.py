@@ -17,8 +17,14 @@ class CarRacing(gym.Wrapper):
 
         self.frame_buf = deque(maxlen=frame_stack)
 
+        self.last_reward = 0
+
+    def reset(self):
+        self.last_reward = 0
+        return super().reset()
+
     def preprocess(self, original_action):
-        original_action = original_action * 2 - 1 # map from [0, 1] to [-1, 1]
+        original_action = original_action * 2 - 1  # map from [0, 1] to [-1, 1]
 
         action = np.zeros(3)
 
@@ -37,6 +43,9 @@ class CarRacing(gym.Wrapper):
 
         return observation
 
+    def shape_reward(self, reward):
+        return np.clip(reward, -1, 1)
+
     def get_observation(self):
         return np.array(self.frame_buf)
 
@@ -51,10 +60,13 @@ class CarRacing(gym.Wrapper):
     def step(self, action):
         action = self.preprocess(action)
 
-        new_frame, reward, done, info = self.env.step(action)
-
-        for _ in range(self.frame_skip):
+        total_reward = 0
+        for _ in range(self.frame_skip + 1):
             new_frame, reward, done, info = self.env.step(action)
+            reward = self.shape_reward(reward)
+            total_reward += reward
+
+        reward = total_reward / (self.frame_skip + 1)
 
         new_frame = self.postprocess(new_frame)
         self.frame_buf.append(new_frame)

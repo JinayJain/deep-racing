@@ -20,7 +20,6 @@ class ActorCritic(nn.Module):
         )
 
         conv_out_size = self._get_conv_out(state_dim)
-        print(conv_out_size)
 
         # Estimates the parameters of a Beta distribution over actions
         self.actor_fc = nn.Sequential(nn.Linear(conv_out_size, 256), nn.ReLU(),)
@@ -30,7 +29,7 @@ class ActorCritic(nn.Module):
 
         # Estimates the value of the state
         self.critic = nn.Sequential(
-            nn.Linear(conv_out_size, 256), nn.ReLU(), nn.Linear(256, 1), nn.ReLU(),
+            nn.Linear(conv_out_size, 256), nn.ReLU(), nn.Linear(256, 1),
         )
 
     def forward(self, x):
