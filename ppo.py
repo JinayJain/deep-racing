@@ -4,6 +4,7 @@ from torch import nn, optim
 from torch.distributions import Beta
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+from logger import Logger
 
 from memory import Memory
 
@@ -23,7 +24,8 @@ class PPO:
         epochs_per_step: int = 5,
         num_steps: int = 1000,
         clip: float = 0.2,
-        value_coef: float = 0.05,
+        value_coef: float = 0.5,
+        entropy_coef: float = 0.01,
     ) -> None:
         self.env = env
         self.net = net.to(device)
@@ -37,10 +39,12 @@ class PPO:
         self.gae_lambda = gae_lambda
         self.clip = clip
         self.value_coef = value_coef
-
-        self.state = self._to_tensor(env.reset())
+        self.entropy_coef = entropy_coef
 
         self.optim = optim.Adam(self.net.parameters(), lr=self.lr)
+        self.logger = Logger()
+
+        self.state = self._to_tensor(env.reset())
 
     def train(self):
         for step in range(self.num_steps):
@@ -64,6 +68,7 @@ class PPO:
                     self.train_batch(
                         states, actions, log_probs, rewards, advantages, values
                     )
+                    self.logger.print()
 
     def train_batch(
         self,
@@ -78,6 +83,7 @@ class PPO:
         values = values.squeeze(1)
 
         policy = Beta(alpha, beta)
+        entropy = policy.entropy()
         log_probs = policy.log_prob(old_actions).sum(dim=1)
 
         ratio = (log_probs - old_log_probs).exp()  # same as policy / policy_old
@@ -87,16 +93,28 @@ class PPO:
         )
         policy_loss = -torch.min(policy_loss_raw, policy_loss_clip).mean()
 
-        value_target = advantages + old_values
+        value_target = advantages + old_values  # V_t = (Q_t - V_t) + V_t
         value_loss = nn.MSELoss()(values, value_target)
 
-        loss = policy_loss + self.value_coef * value_loss
+        entropy_loss = -entropy.mean()
+
+        loss = (
+            policy_loss
+            + self.value_coef * value_loss
+            + self.entropy_coef * entropy_loss
+        )
+
+        self.logger.log("Policy Loss", policy_loss.item())
+        self.logger.log("Value Loss", value_loss.item())
+        self.logger.log("Entropy Loss", entropy_loss.item())
 
         self.optim.zero_grad()
 
         loss.backward()
 
         self.optim.step()
+
+        return loss.item(), policy_loss.item(), value_loss.item()
 
     def collect_trajectory(self, num_steps: int):
         states, actions, rewards, log_probs, values, dones = [], [], [], [], [], []
