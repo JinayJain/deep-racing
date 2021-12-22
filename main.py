@@ -6,7 +6,7 @@ from ppo import PPO
 
 
 def main():
-    env = CarRacing(frame_skip=4, frame_stack=4,)
+    env = CarRacing(frame_skip=0, frame_stack=4,)
     net = ActorCritic(env.observation_space.shape, env.action_space.shape)
 
     ppo = PPO(env, net)
