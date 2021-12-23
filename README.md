@@ -1,5 +1,7 @@
 # Self-Driving Racecar with Proximal Policy Optimization
 
+![Video Demo](extra/demo.gif)
+
 Using [proximal policy optimization](https://openai.com/blog/openai-baselines-ppo/) to train a racecar in the CarRacing-v0 environment of OpenAI Gym.
 
 Check out my project [report](extra/report.pdf) for more details.
