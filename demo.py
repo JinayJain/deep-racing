@@ -17,17 +17,10 @@ def load_config():
     return config
 
 
-def seed(seed):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-
-
 def main():
     cfg = load_config()
-    seed(cfg["seed"])
 
-    env = CarRacing(frame_skip=1, frame_stack=4,)
+    env = CarRacing(frame_skip=0, frame_stack=4,)
     net = ActorCritic(env.observation_space.shape, env.action_space.shape)
 
     ppo = PPO(
@@ -46,7 +39,9 @@ def main():
         save_dir=cfg["save_dir"],
         save_interval=cfg["save_interval"],
     )
-    ppo.train()
+    ppo.load(cfg["save_dir"], 5000)
+    for i in range(100):
+        ppo.collect_trajectory(1000)
 
     env.close()
 

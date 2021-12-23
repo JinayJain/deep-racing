@@ -3,6 +3,8 @@ from gym.spaces import Box
 import numpy as np
 from collections import deque
 
+from logger import Logger
+
 
 class CarRacing(gym.Wrapper):
     def __init__(self, frame_skip=0, frame_stack=4):
@@ -17,11 +19,10 @@ class CarRacing(gym.Wrapper):
 
         self.frame_buf = deque(maxlen=frame_stack)
 
-        self.last_reward = 0
+        self.total_reward = 0
+        self.n_episodes = 0
 
-    def reset(self):
-        self.last_reward = 0
-        return super().reset()
+        self.logger = Logger("logs/episode_reward.csv")
 
     def preprocess(self, original_action):
         original_action = original_action * 2 - 1  # map from [0, 1] to [-1, 1]
@@ -50,6 +51,14 @@ class CarRacing(gym.Wrapper):
         return np.array(self.frame_buf)
 
     def reset(self):
+        self.logger.log("Episode", self.n_episodes)
+        self.logger.log("Reward", self.total_reward)
+        self.logger.write()
+        self.logger.print()
+
+        self.n_episodes += 1
+        self.total_reward = 0
+
         first_frame = self.postprocess(self.env.reset())
 
         for _ in range(self.frame_stack):
@@ -63,6 +72,7 @@ class CarRacing(gym.Wrapper):
         total_reward = 0
         for _ in range(self.frame_skip + 1):
             new_frame, reward, done, info = self.env.step(action)
+            self.total_reward += reward
             reward = self.shape_reward(reward)
             total_reward += reward
 

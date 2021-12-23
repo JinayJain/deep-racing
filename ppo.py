@@ -46,7 +46,7 @@ class PPO:
         self.save_interval = save_interval
 
         self.optim = optim.Adam(self.net.parameters(), lr=self.lr)
-        self.logger = Logger()
+        self.logger = Logger("logs/training.csv")
 
         self.state = self._to_tensor(env.reset())
         self.alpha = 1.0
@@ -83,9 +83,14 @@ class PPO:
 
             self.logger.log("Loss", avg_loss / len(memory_loader))
             self.logger.print(f"Step {step}")
+            self.logger.write()
 
             if step % self.save_interval == 0:
                 self.save(self.save_dir, step)
+
+        # save final model
+        self.save(self.save_dir, self.num_steps)
+        self.logger.close()
 
     def train_batch(
         self,
@@ -181,6 +186,9 @@ class PPO:
 
     def save(self, folder: str, n: int):
         torch.save(self.net.state_dict(), path.join(folder, f"net_{n}.pt"))
+
+    def load(self, folder: str, n: int):
+        self.net.load_state_dict(torch.load(path.join(folder, f"net_{n}.pt")))
 
     def _compute_gae(self, rewards, values, dones, last_value):
         advantages = [0] * len(rewards)
