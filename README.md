@@ -6,6 +6,8 @@ Solving the OpenAI Gym [CarRacing-v0](https://gym.openai.com/envs/CarRacing-v0) 
 
 ![Video Demo](extra/demo.gif)
 
+See the full video demo on [YouTube](https://youtu.be/s1uKkmNiNhM).
+
 ## Results
 
 After 5000 training steps, the agent achieves a mean score of 909.48±10.30 over 100 episodes. Results are computed using the `demo.py` script.

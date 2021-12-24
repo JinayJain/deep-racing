@@ -6,6 +6,7 @@ from torch import nn, optim
 from torch.distributions import Beta
 from torch.utils.data import DataLoader
 from os import path
+from time import sleep
 
 from memory import Memory
 from logger import Logger
@@ -138,7 +139,7 @@ class PPO:
 
         return loss.item(), policy_loss.item(), value_loss.item(), entropy_loss.item()
 
-    def collect_trajectory(self, num_steps: int):
+    def collect_trajectory(self, num_steps: int, delay_ms: int = 0) -> Memory:
         states, actions, rewards, log_probs, values, dones = [], [], [], [], [], []
 
         for t in range(num_steps):
@@ -168,6 +169,11 @@ class PPO:
             self.state = next_state
 
             self.env.render()
+
+            if delay_ms > 0:
+                sleep(delay_ms / 1000)
+
+            
 
         # Get value of last state (used in GAE)
         final_value, _, _ = self.net(self.state)

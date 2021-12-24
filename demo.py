@@ -40,7 +40,7 @@ def main():
     )
     ppo.load(cfg["save_dir"], 5000)
     for i in range(100):
-        ppo.collect_trajectory(1000)
+        ppo.collect_trajectory(1000, delay_ms=10)
 
     env.close()
 
