@@ -3,8 +3,7 @@ import numpy as np
 import random
 import toml
 
-from game import CarRacing
-from net import ActorCritic
+from games.carracing import RacingNet, CarRacing
 from ppo import PPO
 
 CONFIG_FILE = "config.toml"
@@ -21,7 +20,7 @@ def main():
     cfg = load_config()
 
     env = CarRacing(frame_skip=0, frame_stack=4,)
-    net = ActorCritic(env.observation_space.shape, env.action_space.shape)
+    net = RacingNet(env.observation_space.shape, env.action_space.shape)
 
     ppo = PPO(
         env,

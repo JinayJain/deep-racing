@@ -3,8 +3,8 @@ import numpy as np
 import random
 import toml
 
-from game import CarRacing
-from net import ActorCritic
+from games.carracing import RacingNet, CarRacing
+from games.bipedal import BipedalNet, BipedalWalker
 from ppo import PPO
 
 CONFIG_FILE = "config.toml"
@@ -27,8 +27,11 @@ def main():
     cfg = load_config()
     seed(cfg["seed"])
 
-    env = CarRacing(frame_skip=1, frame_stack=4,)
-    net = ActorCritic(env.observation_space.shape, env.action_space.shape)
+    # env = CarRacing(frame_skip=1, frame_stack=4,)
+    # net = RacingNet(env.observation_space.shape, env.action_space.shape)
+
+    env = BipedalWalker()
+    net = BipedalNet(env.observation_space.shape, env.action_space.shape)
 
     ppo = PPO(
         env,

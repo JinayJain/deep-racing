@@ -1,13 +1,18 @@
 # Self-Driving Racecar with Proximal Policy Optimization
 
-![Video Demo](extra/demo.gif)
-
-Using [proximal policy optimization](https://openai.com/blog/openai-baselines-ppo/) to train a racecar in the CarRacing-v0 environment of OpenAI Gym.
-
-Check out my project [report](extra/report.pdf) for more details.
+Solving the OpenAI Gym [CarRacing-v0](https://gym.openai.com/envs/CarRacing-v0) environment using Proximal Policy Optimization.
 
 ## Demo
 
-View the [demo](https://www.youtube.com/watch?v=SyGluS2sT00) of the project in action.
+![Video Demo](extra/demo.gif)
 
-[![Demo](https://img.youtube.com/vi/SyGluS2sT00/0.jpg)](https://www.youtube.com/watch?v=SyGluS2sT00)
+## Results
+
+After 5000 training steps, the agent achieves a mean score of 909.48±10.30 over 100 episodes. Results are computed using the `demo.py` script.
+
+## Implementation Details
+
+- A convolutional neural network to jointly approximate the value function and the policy.
+- Optimization is performed using [Proximal Policy Optimization](https://arxiv.org/abs/1707.06347).
+- Policy network outputs parameters to a Beta distribution, [which is better for bounded continuous action spaces](https://proceedings.mlr.press/v70/chou17a/chou17a.pdf).
+- A series of 4 frames are concatenated to form the input to the network, with frame skipping optionally applied.
