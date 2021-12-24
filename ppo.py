@@ -1,4 +1,6 @@
+from typing import Tuple
 import gym
+import numpy as np
 import torch
 from torch import nn, optim
 from torch.distributions import Beta
@@ -189,6 +191,13 @@ class PPO:
 
     def load(self, folder: str, n: int):
         self.net.load_state_dict(torch.load(path.join(folder, f"net_{n}.pt")))
+
+    def predict(
+        self, state: np.ndarray
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        state = self._to_tensor(state)
+        value, alpha, beta = self.net(state)
+        return value, alpha, beta
 
     def _compute_gae(self, rewards, values, dones, last_value):
         advantages = [0] * len(rewards)
