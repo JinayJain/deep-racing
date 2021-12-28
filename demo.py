@@ -1,6 +1,3 @@
-import torch
-import numpy as np
-import random
 import toml
 
 from games.carracing import RacingNet, CarRacing

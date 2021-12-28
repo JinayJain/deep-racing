@@ -14,7 +14,8 @@ After 5000 training steps, the agent achieves a mean score of 909.48±10.30 over
 
 ## Implementation Details
 
-- A convolutional neural network to jointly approximate the value function and the policy.
-- Optimization is performed using [Proximal Policy Optimization](https://arxiv.org/abs/1707.06347).
-- Policy network outputs parameters to a Beta distribution, [which is better for bounded continuous action spaces](https://proceedings.mlr.press/v70/chou17a/chou17a.pdf).
-- A series of 4 frames are concatenated to form the input to the network, with frame skipping optionally applied.
+-   A convolutional neural network to jointly approximate the value function and the policy.
+-   Optimization is performed using [Proximal Policy Optimization](https://arxiv.org/abs/1707.06347).
+-   Policy network outputs parameters to a Beta distribution, [which is better for bounded continuous action spaces](https://proceedings.mlr.press/v70/chou17a/chou17a.pdf).
+-   Advantage estimation is done through the [Generalized Advantage Estimation](https://arxiv.org/abs/1506.02438) algorithm.
+-   A series of 4 frames are concatenated to form the input to the network, with frame skipping optionally applied.
