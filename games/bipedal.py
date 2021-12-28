@@ -6,7 +6,7 @@ import numpy as np
 
 class BipedalWalker(gym.ActionWrapper):
     def __init__(self) -> None:
-        env = gym.make("LunarLanderContinuous-v2")
+        env = gym.make("BipedalWalker-v3")
         super().__init__(env)
 
     def action(self, action):

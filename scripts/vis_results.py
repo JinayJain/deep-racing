@@ -2,6 +2,7 @@ import torch
 from matplotlib import pyplot as plt
 import cv2 as cv
 import numpy as np
+from os.path import join
 
 from ppo import PPO
 from games.carracing import CarRacing, RacingNet
@@ -15,7 +16,7 @@ def main():
     net = RacingNet(env.observation_space.shape, env.action_space.shape).to(device)
 
     ppo = PPO(env, net)
-    ppo.load("ckpt", 5000)
+    ppo.load("ckpt/net_final.pth")
 
     # Intercept last conv layer output
     activations = None

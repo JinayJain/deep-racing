@@ -10,7 +10,14 @@ See the full video demo on [YouTube](https://youtu.be/s1uKkmNiNhM).
 
 ## Results
 
-After 5000 training steps, the agent achieves a mean score of 909.48±10.30 over 100 episodes. Results are computed using the `demo.py` script.
+After 5000 training steps, the agent achieves a mean score of 909.48±10.30 over 100 episodes. To reproduce the results, run the following commands:
+
+```
+mkdir logs
+python demo.py --ckpt extra/final_weights.pt --delay_ms 0
+```
+
+Results from episodes will be saved to `logs/episode_rewards.csv`.
 
 ## Implementation Details
 

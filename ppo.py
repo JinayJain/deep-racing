@@ -1,4 +1,5 @@
 from typing import Tuple
+from os.path import join
 import gym
 import numpy as np
 import torch
@@ -89,10 +90,10 @@ class PPO:
             self.logger.write()
 
             if step % self.save_interval == 0:
-                self.save(self.save_dir, step)
+                self.save(join(self.save_dir, f"net_{step}.pth"))
 
         # save final model
-        self.save(self.save_dir, self.num_steps)
+        self.save(join(self.save_dir, f"net_final.pth"))
         self.logger.close()
 
     def train_batch(
@@ -173,8 +174,6 @@ class PPO:
             if delay_ms > 0:
                 sleep(delay_ms / 1000)
 
-            
-
         # Get value of last state (used in GAE)
         final_value, _, _ = self.net(self.state)
         final_value = final_value.squeeze(0)
@@ -192,11 +191,11 @@ class PPO:
 
         return Memory(states, actions, log_probs, rewards, advantages, values)
 
-    def save(self, folder: str, n: int):
-        torch.save(self.net.state_dict(), path.join(folder, f"net_{n}.pt"))
+    def save(self, filepath: str):
+        torch.save(self.net.state_dict(), filepath)
 
-    def load(self, folder: str, n: int):
-        self.net.load_state_dict(torch.load(path.join(folder, f"net_{n}.pt")))
+    def load(self, filepath: str):
+        self.net.load_state_dict(torch.load(filepath))
 
     def predict(
         self, state: np.ndarray

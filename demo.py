@@ -1,4 +1,6 @@
 import toml
+from argparse import ArgumentParser
+from os.path import join
 
 from games.carracing import RacingNet, CarRacing
 from ppo import PPO
@@ -13,8 +15,18 @@ def load_config():
     return config
 
 
+def parse_args():
+    parser = ArgumentParser()
+    parser.add_argument("--ckpt", type=str, default="ckpt")
+    parser.add_argument("--num_steps", type=int, default=100_000)
+    parser.add_argument("--delay_ms", type=int, default=10)
+
+    return parser.parse_args()
+
+
 def main():
     cfg = load_config()
+    args = parse_args()
 
     env = CarRacing(frame_skip=0, frame_stack=4,)
     net = RacingNet(env.observation_space.shape, env.action_space.shape)
@@ -35,9 +47,11 @@ def main():
         save_dir=cfg["save_dir"],
         save_interval=cfg["save_interval"],
     )
-    ppo.load(cfg["save_dir"], 5000)
-    for i in range(100):
-        ppo.collect_trajectory(1000, delay_ms=10)
+
+    ppo.load(args.ckpt)
+
+    for i in range(args.num_steps):
+        ppo.collect_trajectory(1, delay_ms=args.delay_ms)
 
     env.close()
 
