@@ -2,6 +2,8 @@
 
 Solving the OpenAI Gym [CarRacing-v0](https://gym.openai.com/envs/CarRacing-v0) environment using Proximal Policy Optimization.
 
+Read the [full report](extra/report.pdf).
+
 ## Demo
 
 ![Video Demo](extra/demo.gif)
